@@ -5,6 +5,14 @@ import state
 
 app = Flask(__name__)
 
+def headcount(room_id):
+    headcount = 0
+    for scan in state.scans.values():
+        if scan['room_id'] == room_id and scan['session_id'] == state.active_session_id:
+            headcount += 1
+
+    return headcount
+
 @app.route('/api/emergency-sessions', methods=['POST'])
 def activate():
     if state.active_session_id is None:
@@ -60,6 +68,19 @@ def scan():
                 "error": "No card with id: " + card_id
             }), 400
     
+    # TODO: if employee scan twice for same room and in same session edge case
+    for scan in state.scans.values():
+        if scan['card_id'] == card_id and scan['room_id'] == room_id and scan['session_id'] == state.active_session_id:
+            return jsonify({
+                    "error": "Employee with card with id: " + card_id + " already scanned for room with id: " + room_id
+                }), 400
+
+    # TODO: if employee scan on another room in same session edge case
+    for scan in state.scans.values():
+        if scan['card_id'] == card_id and scan['session_id'] == state.active_session_id:
+            scan['room_id'] = room_id
+            return jsonify(scan), 200 
+
     scan_id = str(uuid.uuid4())
     scan = {
         'id': scan_id,
@@ -71,13 +92,39 @@ def scan():
     state.scans[scan_id] = scan
     return jsonify(scan), 201
 
+@app.route('/api/rooms/<room_id>', methods=['GET'])
+def get_room_by_id(room_id):
+    if room_id not in state.rooms:
+        return jsonify({
+                "error": "No room with id: " + room_id
+            }), 400
+    
+    room = state.rooms[room_id]
+
+    response = {
+        'id': room['id'],
+        'name': room['name'],
+        'current_headcount': headcount(room['id']),
+        'total_capacity': room['total_capacity']
+    }
+    
+    return jsonify(response), 200
+
 @app.route('/api/rooms', methods=['GET'])
 def get_rooms():
-    pass
+    response_list = []
 
-@app.route('/api/rooms/<int:id>', methods=['GET'])
-def get_room_by_id(id: int):
-    pass
+    for room in state.rooms.values():
+        room_info = {
+            'id': room['id'],
+            'name': room['name'],
+            'current_headcount': headcount(room['id']),
+            'total_capacity': room['total_capacity']
+        }
+
+        response_list.append(room_info)
+
+    return jsonify(response_list), 200
 
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=5001)
