@@ -38,7 +38,7 @@ def deactivate():
         session = state.sessions[session_id]        # Active session info
         session["ended_at"] = datetime.now(timezone.utc).isoformat()    # deactivated
         state.active_session_id = None
-        return jsonify({"success": "session deactivated successfully", "session_info": session}), 200   
+        return jsonify(session), 200   
     else:
         return jsonify({"error": "No active session exist"}), 400     
 
