@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from datetime import datetime, timezone
 import uuid
 import state
@@ -36,7 +36,40 @@ def deactivate():
 
 @app.route('/api/scan', methods=['POST'])
 def scan():
-    pass
+    scan_data = request.get_json()
+    room_id = scan_data.get('room_id')
+    card_id = scan_data.get('card_id')
+
+    if state.active_session_id is None:
+        return jsonify({
+            "error": "No active session exist"
+        }), 400
+    
+    if room_id is None or card_id is None:
+        return jsonify({
+                "error": "request missing some fields"
+            }), 400
+    
+    if room_id not in state.rooms:
+        return jsonify({
+                "error": "No room with id: " + room_id
+            }), 400
+    
+    if card_id not in state.cards:
+        return jsonify({
+                "error": "No card with id: " + card_id
+            }), 400
+    
+    scan_id = str(uuid.uuid4())
+    scan = {
+        'id': scan_id,
+        'room_id': room_id,
+        'session_id': state.active_session_id,
+        'card_id': card_id,
+        'scanned_at': datetime.now(timezone.utc).isoformat()
+    }
+    state.scans[scan_id] = scan
+    return jsonify(scan), 201
 
 @app.route('/api/rooms', methods=['GET'])
 def get_rooms():
@@ -47,4 +80,4 @@ def get_room_by_id(id: int):
     pass
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=5000)
+    app.run(debug=True, host="127.0.0.1", port=5001)
