@@ -63,7 +63,7 @@ def scan():
                 "error": "No room with id: " + room_id
             }), 400
     
-    if card_id not in state.cards:
+    if card_id not in state.cards.keys():
         return jsonify({
                 "error": "No card with id: " + card_id
             }), 400
@@ -87,6 +87,7 @@ def scan():
         'room_id': room_id,
         'session_id': state.active_session_id,
         'card_id': card_id,
+        'card_holder': state.cards[card_id],
         'scanned_at': datetime.now(timezone.utc).isoformat()
     }
     state.scans[scan_id] = scan
@@ -127,4 +128,4 @@ def get_rooms():
     return jsonify(response_list), 200
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=5001)
+    app.run(debug=True, host="0.0.0.0", port=5001)

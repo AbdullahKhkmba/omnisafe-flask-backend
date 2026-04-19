@@ -12,9 +12,8 @@ rooms = {'R1': {
         }
 scans = dict()
 cards = {
-            'C1': {'id':'C1', 'card_holder': 'Abdullah'},
-            'C2': {'id':'C2', 'card_holder': 'Ayman'},
-            'C3': {'id':'C3', 'card_holder': 'Hamdy'},
+            '5D03B302':'Abdullah',
+            '51BBB802':'Mouhamed'
         }
 
 active_session_id = None

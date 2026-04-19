@@ -245,8 +245,8 @@ Those are endpoints in the same order as the functions needed from the backend e
 ### Setup
 Clone the repository and install dependencies:
 ```bash
-git clone <repo-url>
-cd emergency-assembly
+git clone git@github.com:AbdullahKhkmba/omnisafe-flask-backend.git
+cd omnisafe-flask-backend
 uv sync
 ```
 
