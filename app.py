@@ -44,42 +44,48 @@ def deactivate():
 
 @app.route('/api/scan', methods=['POST'])
 def scan():
-    scan_data = request.get_json()
+    scan_data = request.get_json(force=True)
     room_id = scan_data.get('room_id')
     card_id = scan_data.get('card_id')
 
     if state.active_session_id is None:
         return jsonify({
-            "error": "No active session exist"
-        }), 400
-    
+            "error_code": "NO_ACTIVE_SESSION",
+            "error": "No active emergency session"
+        }), 409  # Conflict — request is valid but state doesn't allow it
+
     if room_id is None or card_id is None:
         return jsonify({
-                "error": "request missing some fields"
-            }), 400
-    
+            "error_code": "MISSING_FIELDS",
+            "error": "Request missing room_id or card_id"
+        }), 422  # Unprocessable Entity — structure is wrong
+
     if room_id not in state.rooms:
         return jsonify({
-                "error": "No room with id: " + room_id
-            }), 400
-    
-    if card_id not in state.cards.keys():
+            "error_code": "ROOM_NOT_FOUND",
+            "error": f"No room with id: {room_id}"
+        }), 404  # Not Found — resource doesn't exist
+
+    if card_id not in state.cards:
         return jsonify({
-                "error": "No card with id: " + card_id
-            }), 400
-    
-    # TODO: if employee scan twice for same room and in same session edge case
+            "error_code": "CARD_NOT_FOUND",
+            "error": f"No card with id: {card_id}"
+        }), 404  # Not Found
+
     for scan in state.scans.values():
         if scan['card_id'] == card_id and scan['room_id'] == room_id and scan['session_id'] == state.active_session_id:
             return jsonify({
-                    "error": "Employee with card with id: " + card_id + " already scanned for room with id: " + room_id
-                }), 400
+                "error_code": "ALREADY_SCANNED",
+                "error": f"Card {card_id} already scanned for room {room_id}"
+            }), 409  # Conflict — duplicate
 
-    # TODO: if employee scan on another room in same session edge case
     for scan in state.scans.values():
         if scan['card_id'] == card_id and scan['session_id'] == state.active_session_id:
             scan['room_id'] = room_id
-            return jsonify(scan), 200 
+            return jsonify({
+                "error_code": "ROOM_TRANSFERRED",
+                **scan
+            }), 200
 
     scan_id = str(uuid.uuid4())
     scan = {
