@@ -2,8 +2,10 @@ from flask import Flask, jsonify, request
 from datetime import datetime, timezone
 import uuid
 import state
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app) 
 
 def headcount(room_id):
     headcount = 0
@@ -31,16 +33,21 @@ def activate():
         return jsonify({"error": 
             "An active session already exist with id: " + state.active_session_id}), 400
 
+@app.route('/api/emergency-sessions/active', methods=['GET'])
+def get_active_session():
+    if state.active_session_id is None:
+        return jsonify({"error": "No active session"}), 404
+    return jsonify(state.sessions[state.active_session_id]), 200
+
 @app.route('/api/emergency-sessions/active', methods=['PATCH'])
 def deactivate():
     if state.active_session_id is not None:
-        session_id = state.active_session_id
-        session = state.sessions[session_id]        # Active session info
-        session["ended_at"] = datetime.now(timezone.utc).isoformat()    # deactivated
+        session = state.sessions[state.active_session_id]
+        session["ended_at"] = datetime.now(timezone.utc).isoformat()
         state.active_session_id = None
-        return jsonify(session), 200   
+        return jsonify(session), 200
     else:
-        return jsonify({"error": "No active session exist"}), 400     
+        return jsonify({"error": "No active session exists"}), 400
 
 @app.route('/api/scan', methods=['POST'])
 def scan():
