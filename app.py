@@ -7,13 +7,64 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app) 
 
-def headcount(room_id):
+def headcount(room_id, session_id=None):
+    if session_id is None:
+        session_id = state.active_session_id
+    
     headcount = 0
     for scan in state.scans.values():
-        if scan['room_id'] == room_id and scan['session_id'] == state.active_session_id:
+        if scan['room_id'] == room_id and scan['session_id'] == session_id:
             headcount += 1
 
     return headcount
+
+# return last scan time or None if room was not compeleted
+def completed_at(room_id, session_id):
+    room = state.rooms[room_id]
+    complete_time = None
+
+    if headcount(room_id, session_id) == room['total_capacity']:
+        # find time of last scan
+        for scan in state.scans.values():
+            if scan['room_id'] == room_id and scan['session_id'] == session_id:
+                if complete_time is None:
+                    complete_time = scan['scanned_at']
+                else:
+                    complete_time = max(complete_time, scan['scanned_at'])
+    
+    return complete_time
+
+@app.route('/api/emergency-sessions', methods=['GET'])
+def get_sessions():
+    sessions_list =[]
+
+    for session in state.sessions.values():
+        if session['ended_at'] is None:    # skip active sessions
+            continue   
+        
+        rooms_list = []
+        for room in state.rooms.values():
+            room_info = {
+                'id': room['id'],
+                'name': room['name'],
+                'final_headcount': headcount(room['id'], session['id']),
+                'total_capacity': room['total_capacity'],
+                'completed_at': completed_at(room['id'], session['id'])
+            }
+
+            rooms_list.append(room_info)
+        
+        sessions_list.append({
+            "session_id": session['id'],
+            "started_at": session['started_at'],
+            "ended_at": session['ended_at'],
+            "rooms": rooms_list
+        })
+
+    # Sort by ended_at timestamp in descending order (most recent first)
+    sessions_list.sort(key=lambda s: s['ended_at'], reverse=True)
+    
+    return jsonify(sessions_list), 200
 
 @app.route('/api/emergency-sessions', methods=['POST'])
 def activate():
@@ -126,19 +177,34 @@ def get_room_by_id(room_id):
 
 @app.route('/api/rooms', methods=['GET'])
 def get_rooms():
-    response_list = []
-
+    rooms_list = []
+    asid = state.active_session_id
     for room in state.rooms.values():
         room_info = {
             'id': room['id'],
             'name': room['name'],
             'current_headcount': headcount(room['id']),
-            'total_capacity': room['total_capacity']
+            'total_capacity': room['total_capacity'],
+            'completed_at': completed_at(room['id'], asid)
         }
 
-        response_list.append(room_info)
+        rooms_list.append(room_info)
 
-    return jsonify(response_list), 200
+    if(asid is not None):
+        response = {
+            "session_active": True,
+            "started_at": state.sessions[asid]['started_at'],
+            "rooms": rooms_list
+        }
+    else:
+        response = {
+            "session_active": False,
+            "started_at": None,
+            "rooms": rooms_list
+        }
+    
+
+    return jsonify(response), 200
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5001)
